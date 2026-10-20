@@ -3,7 +3,7 @@
   hosts: all
   become: true
   vars:
-    credit_domain: jobs.africandroid.world
+    credit_domain: credit.africandroid.world
     credit_repo: https://github.com/olamidebello/Africa-Credit.git
     credit_root: /opt/africa-credit
     credit_port: 18840
