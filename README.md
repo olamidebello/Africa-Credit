@@ -32,3 +32,24 @@ Legal pages require operator identity/contact/territory and professional review 
 python3 -m unittest discover -s tests -v
 node --check static/app.js
 ```
+
+## Pull and deploy directly on the hosting server
+
+Ensure DNS A record credit.africandroid.world points to 181.214.149.146 and remove any conflicting AAAA record if that server does not serve IPv6. Run these commands over your existing server SSH session:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git ansible
+sudo git clone https://github.com/olamidebello/Africa-Credit.git /opt/africa-credit-deployer
+sudo bash /opt/africa-credit-deployer/deploy/pull-and-deploy.sh
+```
+
+If the deployer already exists, omit the clone and run the last command. It fetches and fast-forwards main before running the local Ansible playbook. Local changes cause a stop rather than being discarded.
+
+The certificate contact defaults to dobcalldemo@gmail.com. Override if needed:
+
+```bash
+sudo bash /opt/africa-credit-deployer/deploy/pull-and-deploy.sh -e letsencrypt_email=YOUR_EMAIL
+```
+
+This installs dependencies, backs up an existing SQLite database under /var/backups/africa-credit, pulls the application into /opt/africa-credit, starts its isolated systemd service, preserves an existing Africa Credit nginx/TLS configuration, obtains HTTPS and checks health. Open https://credit.africandroid.world/?setup for first-admin setup using the private server setup token. No SSH password or production secrets are committed. This script does not provision registrar DNS or publish an APK, and successful GitHub publication does not establish that it has run on your server.
