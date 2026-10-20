@@ -1,0 +1,47 @@
+name: Build Africa Credit Android
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: Verified Africa Credit HTTPS URL (must not serve Africa Jobs)
+        required: true
+  push:
+    branches: [main]
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build development APK
+        working-directory: mobile
+        env:
+          CREDIT_URL: ${{ inputs.app_url || 'https://jobs.africandroid.world' }}
+        run: |
+          case "$CREDIT_URL" in https://*) ;; *) exit 1 ;; esac
+          # Build source on push, but never silently point a client at Africa Jobs.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            curl --fail --max-time 20 "$CREDIT_URL/health" | python3 -c 'import json,sys; assert json.load(sys.stdin).get("service")=="africa-credit"'
+          fi
+          gradle assembleDebug -PappUrl="$CREDIT_URL"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: africa-credit-development-apk
+          path: mobile/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish development download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp mobile/app/build/outputs/apk/debug/app-debug.apk Africa-Credit-development.apk
+          sha256sum Africa-Credit-development.apk > Africa-Credit-development.apk.sha256
+          gh release view development || gh release create development --prerelease --title 'Africa Credit development' --notes 'Development APK. Verify the website domain before installing. Not a production signed release.'
+          gh release upload development Africa-Credit-development.apk Africa-Credit-development.apk.sha256 --clobber

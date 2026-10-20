@@ -1,0 +1,123 @@
+---
+- name: Deploy Africa Credit on Olamidepanel
+  hosts: all
+  become: true
+  vars:
+    credit_domain: jobs.africandroid.world
+    credit_repo: https://github.com/olamidebello/Africa-Credit.git
+    credit_root: /opt/africa-credit
+    credit_port: 18840
+  tasks:
+    - name: Check requested domain before changing hosting
+      ansible.builtin.uri:
+        url: "https://{{ credit_domain }}/"
+        return_content: true
+        validate_certs: true
+      register: existing
+      failed_when: false
+    - name: Prevent replacement of an occupied domain
+      ansible.builtin.assert:
+        that:
+          - existing.status | default(-1) != 200 or 'Africa Credit' in (existing.content | default(''))
+        fail_msg: "Requested domain serves another app. Select an unused credit_domain; no hosting changes made."
+    - name: Validate host and operator configuration
+      ansible.builtin.assert:
+        that:
+          - credit_domain is match('^[a-z0-9.-]+$')
+          - letsencrypt_email is defined
+    - name: Install dependencies
+      ansible.builtin.apt:
+        name: [git, python3, nginx, certbot, python3-certbot-nginx]
+        update_cache: true
+    - name: Create isolated service user
+      ansible.builtin.user:
+        name: africacredit
+        system: true
+        shell: /usr/sbin/nologin
+        create_home: false
+    - name: Pull source without overwriting local changes
+      ansible.builtin.git:
+        repo: "{{ credit_repo }}"
+        dest: "{{ credit_root }}"
+        version: main
+        force: false
+    - name: Create private persistent data directory
+      ansible.builtin.file:
+        path: /var/lib/africa-credit
+        state: directory
+        owner: africacredit
+        mode: '0700'
+    - name: Generate first-install setup token privately
+      ansible.builtin.shell: "umask 077; python3 -c 'import secrets; print(\"SETUP_TOKEN=\"+secrets.token_urlsafe(40))' > /etc/africa-credit.env"
+      args:
+        creates: /etc/africa-credit.env
+      no_log: true
+    - name: Install hardened service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/africa-credit.service
+        content: |
+          [Unit]
+          Description=Africa Credit
+          After=network.target
+          [Service]
+          User=africacredit
+          WorkingDirectory={{ credit_root }}
+          EnvironmentFile=/etc/africa-credit.env
+          Environment=DATABASE_PATH=/var/lib/africa-credit/app.sqlite3 PORT={{ credit_port }} COOKIE_SECURE=1
+          ExecStart=/usr/bin/python3 {{ credit_root }}/app.py
+          Restart=on-failure
+          NoNewPrivileges=true
+          ProtectSystem=strict
+          ProtectHome=true
+          PrivateTmp=true
+          ReadWritePaths=/var/lib/africa-credit
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+    - name: Start service
+      ansible.builtin.systemd:
+        name: africa-credit
+        daemon_reload: true
+        enabled: true
+        state: restarted
+    - name: Verify backend
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ credit_port }}/health"
+        status_code: 200
+    - name: Install dedicated virtual host
+      ansible.builtin.copy:
+        dest: /etc/nginx/sites-available/africa-credit
+        mode: '0644'
+        content: |
+          server {
+            listen 80;
+            server_name {{ credit_domain }};
+            client_max_body_size 1m;
+            location / {
+              proxy_pass http://127.0.0.1:{{ credit_port }};
+              proxy_set_header Host $host;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_set_header X-Real-IP $remote_addr;
+            }
+          }
+    - name: Enable virtual host
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/africa-credit
+        dest: /etc/nginx/sites-enabled/africa-credit
+        state: link
+    - name: Validate nginx
+      ansible.builtin.command: nginx -t
+      changed_when: false
+    - name: Reload nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+    - name: Obtain TLS certificate after DNS is configured
+      ansible.builtin.command:
+        argv: [certbot, --nginx, -d, "{{ credit_domain }}", --non-interactive, --agree-tos, -m, "{{ letsencrypt_email }}", --redirect]
+      register: certificate
+      changed_when: "'Successfully' in certificate.stdout"
+    - name: Verify public deployment
+      ansible.builtin.uri:
+        url: "https://{{ credit_domain }}/health"
+        status_code: 200
