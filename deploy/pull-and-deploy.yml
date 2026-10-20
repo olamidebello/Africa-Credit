@@ -1,0 +1,12 @@
+---
+- name: Configure local Africa Credit deployment
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Set default domain and certificate email
+      ansible.builtin.set_fact:
+        credit_domain: "{{ credit_domain | default('credit.africandroid.world') }}"
+        letsencrypt_email: "{{ letsencrypt_email | default('dobcalldemo@gmail.com') }}"
+- import_playbook: hosting.yml
