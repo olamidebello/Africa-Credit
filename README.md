@@ -11,14 +11,14 @@ COOKIE_SECURE=0 python3 app.py
 Open http://127.0.0.1:18840/?setup and enter the token from your local environment to create the first super admin. Never commit or share this token. Use HTTPS and COOKIE_SECURE=1 outside localhost.
 
 ## Deploy on Olamidepanel
-The requested jobs.africandroid.world is occupied by Africa Jobs. Deployment refuses to replace it. Choose an unused domain and point its DNS at the hosting server first.
+The production domain is credit.africandroid.world. Point its DNS A record at your Olamidepanel server before deployment. The playbook refuses to replace an unrelated application.
 ```
-ansible-playbook -i 'YOUR_SERVER,' -u YOUR_SSH_USER deploy/hosting.yml -e credit_domain=YOUR_UNUSED_DOMAIN -e letsencrypt_email=YOUR_EMAIL
+ansible-playbook -i 'YOUR_SERVER,' -u YOUR_SSH_USER deploy/hosting.yml -e credit_domain=credit.africandroid.world -e letsencrypt_email=YOUR_EMAIL
 ```
 First-install setup token lives in /etc/africa-credit.env, readable only by root. Visit /?setup once. Service database is private in /var/lib/africa-credit. No default admin password. This project uses a dedicated systemd/nginx deployment and does not modify Olamidepanel’s undocumented inventory database.
 
 ## Android
-Android WebView client, HTTPS-only, external links in browser, no JS native bridge, no TLS-error bypass. GitHub Actions builds a development APK and publishes a prerelease download. Production signing is not configured. Set the appUrl Gradle property only after verifying an unoccupied Africa Credit deployment. The default domain is blocked in workflow verification until it serves Africa Credit.
+Android WebView client, HTTPS-only, external links in browser, no JS native bridge, no TLS-error bypass. GitHub Actions builds a development APK and publishes a prerelease download. Production signing is not configured. Set the appUrl Gradle property only after verifying an unoccupied Africa Credit deployment. Publication is blocked until credit.africandroid.world verifies as Africa Credit.
 
 ## Actual scope and remaining work
 Working: registration/sign-in/logout, guarded first-admin setup, member case submission/history, role-protected case updates, user suspension, organization creation, tenant-scoped queries, offer publishing, education, repayment calculator, legal notices, download page, mobile source and deployment automation.
