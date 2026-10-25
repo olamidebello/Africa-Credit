@@ -53,3 +53,23 @@ sudo bash /opt/africa-credit-deployer/deploy/pull-and-deploy.sh -e letsencrypt_e
 ```
 
 This installs dependencies, backs up an existing SQLite database under /var/backups/africa-credit, pulls the application into /opt/africa-credit, starts its isolated systemd service, preserves an existing Africa Credit nginx/TLS configuration, obtains HTTPS and checks health. Open https://credit.africandroid.world/?setup for first-admin setup using the private server setup token. No SSH password or production secrets are committed. This script does not provision registrar DNS or publish an APK, and successful GitHub publication does not establish that it has run on your server.
+
+## Signed Android download and store publication (1.0.1)
+The checked-in APK is signed with the dedicated privately backed-up Africa Credit key, package world.africandroid.credit, minSdk 26, targetSdk 35, version code 2. APK v2/v3 signatures and the published checksum have been verified. No emulator or physical-device test was available. This is an Android HTTPS website client, not a native implementation of every finance service. File downloads and unsupported flows may require the browser.
+
+Direct repository download: https://raw.githubusercontent.com/olamidebello/Africa-Credit/main/static/downloads/africa-credit.apk
+
+On the existing Olamidepanel server:
+```bash
+git -C /opt/africa-credit-deployer pull --ff-only origin main
+ansible-playbook -i localhost, -c local /opt/africa-credit-deployer/deploy/mobile-and-store.yml
+```
+The playbook verifies the bundled checksum, updates the existing African Apps Store, publishes its download and hosted listing, then updates Africa Credit's install page and APK. It requires both existing services and the existing store database. If its database is elsewhere, pass -e credit_store_database=/absolute/path/store.sqlite3. Existing code/databases are backed up by the store updater. This playbook is not a fresh install of either service.
+
+After successful deployment:
+- https://credit.africandroid.world/download.html
+- https://credit.africandroid.world/downloads/africa-credit.apk
+- https://africanappsstore.space/downloads/africa-credit.apk
+- https://africanappsstore.space/#Hosted%20apps
+
+The SDK workflow no longer requests the obsolete tools package. It produces debug artifacts separately; do not replace the distributed APK with a differently signed debug build. Keep the private signing backup out of GitHub.
