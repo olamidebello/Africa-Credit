@@ -19,6 +19,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -37,13 +39,5 @@ jobs:
         with:
           name: africa-credit-development-apk
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
-      - name: Publish development download
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CREDIT_URL: ${{ inputs.app_url || 'https://credit.africandroid.world' }}
-        run: |
-          curl --fail --max-time 20 "$CREDIT_URL/health" | python3 -c 'import json,sys; assert json.load(sys.stdin).get("service")=="africa-credit", "Publication blocked: domain is not Africa Credit"'
-          cp mobile/app/build/outputs/apk/debug/app-debug.apk Africa-Credit-development.apk
-          sha256sum Africa-Credit-development.apk > Africa-Credit-development.apk.sha256
-          gh release view development || gh release create development --prerelease --title 'Africa Credit development' --notes 'Development APK. Verify the website domain before installing. Not a production signed release.'
-          gh release upload development Africa-Credit-development.apk Africa-Credit-development.apk.sha256 --clobber
+      # Development debug artifacts are separate from the signed APK in static/downloads.
+      # Use the privately backed-up Africa Credit keystore for compatible release updates.
